@@ -21,10 +21,6 @@ app.use(express.json());
 // * routes
 app.use("/api/user", userRouter);
 
-app.get("/", (req, res) => {
-  res.send("server is running!");
-});
-
 // ! error handlers
 app.use(notFound);
 app.use(errorHandler);
