@@ -18,7 +18,7 @@ router.route("/register").post(createUser);
 router.route("/login").post(loginUser);
 router
   .route("/:id")
-  .get(authMiddleware, getOneUser)
+  .get(getOneUser)
   .put(authMiddleware, updateUser)
   .delete(authMiddleware, deleteUser);
 router.route("/block-user/:id").put(authMiddleware, blockUser);
