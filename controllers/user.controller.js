@@ -2,6 +2,8 @@ const generateToken = require("../config/jwtToken");
 const User = require("../models/user.model");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongodbID");
+const generateRefreshToken = require("../config/refreshToken");
+const jwt = require("jsonwebtoken");
 
 // * Create user
 const createUser = asyncHandler(async (req, res) => {
@@ -25,10 +27,20 @@ const loginUser = asyncHandler(async (req, res) => {
     return res.status(401).json({ message: "Invalid credentials!" });
   }
 
-  res.status(200).json({
-    user: findUser,
-    token: generateToken(findUser._id),
-  });
+  const refreshToken = generateRefreshToken(findUser._id);
+
+  await User.findByIdAndUpdate(findUser._id, { refreshToken }, { new: true });
+
+  res
+    .status(200)
+    .cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 72 * 60 * 60 * 1000,
+    })
+    .json({
+      user: findUser,
+      token: generateToken(findUser._id),
+    });
 });
 
 // * Get all users
@@ -129,6 +141,26 @@ const unblockUser = asyncHandler(async (req, res) => {
   });
 });
 
+// * refresh token
+const handleRefreshToken = asyncHandler(async (req, res) => {
+  const cookie = req.cookies;
+  if (!cookie?.refreshToken) {
+    throw new Error("No refresh token in cookie");
+  }
+  const refreshToken = cookie?.refreshToken;
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    throw new Error("No refresh token found in db or not matched");
+  }
+  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
+    if (err || user._id.toString() !== decoded.id) {
+      throw new Error("Something wrong with refresh token");
+    }
+    const accessToken = generateToken(user._id);
+    res.json(accessToken);
+  });
+});
+
 module.exports = {
   createUser,
   loginUser,
@@ -139,4 +171,5 @@ module.exports = {
   deleteAllUser,
   blockUser,
   unblockUser,
+  handleRefreshToken,
 };
